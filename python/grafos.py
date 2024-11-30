@@ -1,100 +1,109 @@
-import networkx as nx
+import os
+
 import matplotlib.pyplot as plt
-import json
-
-import os
-
-import xml.etree.ElementTree as ET
-
-# Diretório onde estão os arquivos XML
-pasta_curriculos = "./curriculos"
-
-# Lista para armazenar os objetos gerados
-array_objetos = []
-
-import os
-import xml.etree.ElementTree as ET
+import networkx as nx
+import xmltodict
 
 # Caminho para a pasta com os arquivos XML
-caminho_pasta = "./curriculos"
-
-# Função para processar um único XML e transformá-lo em um dicionário
-def processar_xml(arquivo):
-    try:
-        # Carregar e processar o XML
-        tree = ET.parse(arquivo)
-        root = tree.getroot()
-        
-        # Converter para dicionário
-        dicionario = xml_para_dict(root)
-        
-        # Converter para JSON
-        return dicionario
-   
-    except Exception as e:
-        print(f"Erro ao processar o arquivo {arquivo}: {e}")
-        return None
+basepath = "C:\\Users\\Dev-Gustavo\\Documents\\GitHub\\grafosss\\curriculos\\"
+curriculos = []
+infos = {}
 
 
+def format_autores(items, id):
+    if isinstance(items, dict):
+        items = [items]
 
-def xml_para_dict(elemento):
-    dicionario = {}
+    autores = []
+    for autor in items:
 
-    # Adicionar atributos como pares chave-valor
-    for chave, valor in elemento.attrib.items():
-        dicionario[chave] = valor
+        if autor["@NRO-ID-CNPQ"] != id:
+            autores.append(
+                {
+                    "id": autor["@NRO-ID-CNPQ"],
+                    "nome": autor["@NOME-COMPLETO-DO-AUTOR"],
+                }
+            )
 
-    # Processar filhos
-    for filho in elemento:
-        valor = xml_para_dict(filho) if len(filho) > 0 or filho.attrib else (filho.text or "").strip()
-        
-        if filho.tag in dicionario:
-            # Converter para lista se a tag já existir
-            if not isinstance(dicionario[filho.tag], list):
-                dicionario[filho.tag] = [dicionario[filho.tag]]
-            dicionario[filho.tag].append(valor)
-        else:
-            dicionario[filho.tag] = valor
-
-    # Caso não tenha filhos nem atributos, retorna texto como dicionário vazio ou valor direto
-    if not dicionario and elemento.text:
-        return elemento.text.strip()
-    elif not dicionario:
-        return {}  # Garante que objetos vazios sejam representados corretamente
-
-    return dicionario
+    return autores
 
 
+def format_artigos(items, id):
+    if isinstance(items, dict):
+        return [{"titulo": items["DADOS-BASICOS-DO-ARTIGO"]["@TITULO-DO-ARTIGO"],
+                 "autores": format_autores(items["AUTORES"], id)}]
+
+    artigos = []
+    for artigo in items:
+        artigos.append(
+            {
+                "titulo": artigo["DADOS-BASICOS-DO-ARTIGO"]["@TITULO-DO-ARTIGO"],
+                "autores": format_autores(artigo["AUTORES"], id),
+            }
+        )
+
+    return artigos
 
 
+def format_orientacoes(items, type):
+    if isinstance(items, dict):
+        obj = [{
+            "titulo": items[f"DADOS-BASICOS-DE-ORIENTACOES-CONCLUIDAS-PARA-{type}"]["@TITULO"],
+            "orientado": items[f"DETALHAMENTO-DE-ORIENTACOES-CONCLUIDAS-PARA-{type}"]["@NOME-DO-ORIENTADO"]
+        }]
+        return obj
 
-# Percorre todos os arquivos na pasta "curriculos"
-def processar_todos_xml(caminho_pasta):
-    array_objetos = []
-    for arquivo_nome in os.listdir(caminho_pasta):
-        if arquivo_nome.endswith(".xml"):  # Filtra apenas arquivos XML
-            arquivo_caminho = os.path.join(caminho_pasta, arquivo_nome)
-            obj = processar_xml(arquivo_caminho)
-            if obj:
-                array_objetos.append(obj)
-    return array_objetos
+    orientacoes = []
+    for orientacao in items:
+        orientacoes.append(
+            {
+                "titulo": orientacao[f"DADOS-BASICOS-DE-ORIENTACOES-CONCLUIDAS-PARA-{type}"]["@TITULO"],
+                "orientado": orientacao[f"DETALHAMENTO-DE-ORIENTACOES-CONCLUIDAS-PARA-{type}"]["@NOME-DO-ORIENTADO"]
+            }
+        )
 
-# Executa o processamento
-objetos = processar_todos_xml(caminho_pasta)
-
-# Exibe o resultado
-
-print(objetos[0])
-
-
+    return orientacoes
 
 
-def salvar_em_json(objetos, nome_arquivo):
-    try:
-        with open(nome_arquivo, "w", encoding="utf-8") as json_file:
-            json.dump(objetos, json_file, ensure_ascii=False, indent=4)
-        print(f"Arquivo JSON salvo com sucesso em: {nome_arquivo}")
-    except Exception as e:
-        print(f"Erro ao salvar o arquivo JSON: {e}")
+for filename in os.listdir(basepath):
+    with open(basepath + filename, "r+") as file:
+        curriculos.append(xmltodict.parse(file.read()))
 
-salvar_em_json(objetos[0], "./json")
+for curriculo in curriculos:
+    id = curriculo["CURRICULO-VITAE"]["@NUMERO-IDENTIFICADOR"]
+    nome = curriculo["CURRICULO-VITAE"]["DADOS-GERAIS"]["@NOME-COMPLETO"]
+    infos[id] = {
+        "nome": nome,
+        "artigos": [],
+        "orientandos": {
+            "mestrado": [],
+            "doutorado": [],
+        },
+    }
+
+    artigos = list(filter(lambda x: x["DADOS-BASICOS-DO-ARTIGO"]["@NATUREZA"] == "COMPLETO",
+                          curriculo["CURRICULO-VITAE"]["PRODUCAO-BIBLIOGRAFICA"]["ARTIGOS-PUBLICADOS"][
+                              "ARTIGO-PUBLICADO"]))
+    infos[id]["artigos"] = format_artigos(artigos, id)
+
+    if (orientacoes := curriculo["CURRICULO-VITAE"]["OUTRA-PRODUCAO"]["ORIENTACOES-CONCLUIDAS"].get(
+            "ORIENTACOES-CONCLUIDAS-PARA-MESTRADO", False)):
+        infos[id]["orientandos"]["mestrado"] = format_orientacoes(orientacoes, "MESTRADO")
+
+    if (orientacoes := curriculo["CURRICULO-VITAE"]["OUTRA-PRODUCAO"]["ORIENTACOES-CONCLUIDAS"].get(
+            "ORIENTACOES-CONCLUIDAS-PARA-DOUTORADO", False)):
+        infos[id]["orientandos"]["doutorado"] = format_orientacoes(orientacoes, "DOUTORADO")
+
+g = nx.Graph()
+
+for k, v in infos.items():
+    for a in v['artigos']:
+        for i in a['autores']:
+            g.add_edge(v['nome'], i['nome'])
+
+pos = nx.spring_layout(g, k=1)
+nx.draw_networkx_nodes(g, pos)
+# nx.draw_networkx_labels(g, pos)
+nx.draw_networkx_edges(g, pos)
+
+plt.show()
