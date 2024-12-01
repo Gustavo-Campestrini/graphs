@@ -12,6 +12,10 @@ import matplotlib.pyplot as plt
 import re
 from typing import Literal
 
+# consts
+MESTRADO = "MESTRADO"
+DOUTORADO = "DOUTORADO"
+
 # caminho dos curriculos no sistema de arquivos
 basepath = "/home/magalu/sandbox/graphs/curriculos/"
 
@@ -21,6 +25,10 @@ todos_pesquisadores = {}
 todos_autores = {}
 todos_orientados_mestrado = {}
 todos_orientados_doutorado = {}
+bases_orientados = {
+    MESTRADO: todos_orientados_mestrado,
+    DOUTORADO: todos_orientados_doutorado,
+}
 id_cont = 1
 
 
@@ -50,18 +58,49 @@ def normaliza_nome(nome: str) -> str:
     return nome
 
 
-def existe_na_base(id: str, nome: str, nomes_citacao: list[str], base: dict):
+def autor_ou_pesquisador_existe_na_base(id: str, nome: str, nomes_citacao: list[str], base: dict):
     for k, v in base.items():
         nomes = nome.split()
-        nome = nomes[0]
+        primeiro_nome = nomes[0]
         sobrenome = nomes[-1]
-        pattern = f"{nome} ([a-z]+ )*{sobrenome}( [a-z]+ ?)*"
+        pattern = f"{primeiro_nome} ([a-z]+ )*{sobrenome}( [a-z]+ ?)*"
         nomes_citacao_em_comum = len(set(v["nomes_citacao"]).intersection(set(nomes_citacao)))
         if k == nome or re.search(pattern, k) or nomes_citacao_em_comum > 0 or v["id"] == id:
             return k, True
         
     return "", False
 
+
+def nome_existe_na_base(nome: str, base: dict):
+    for k in base.keys():
+        nomes = nome.split()
+        primeiro_nome = nomes[0]
+        sobrenome = nomes[-1]
+        pattern = f"{primeiro_nome} ([a-z]+ )*{sobrenome}( [a-z]+ ?)*"
+        if k == nome or re.search(pattern, k):
+            return k, True
+        
+    return "", False
+
+
+def pesquisa_orientado_nas_bases(nome: str) -> str:
+    nome_encontrado, ok = nome_existe_na_base(nome, todos_pesquisadores)
+    if ok:
+        return nome_encontrado
+    
+    nome_encontrado, ok = nome_existe_na_base(nome, todos_autores)
+    if ok:
+        return nome_encontrado
+    
+    nome_encontrado, ok = nome_existe_na_base(nome, todos_orientados_mestrado)
+    if ok:
+        return nome_encontrado
+    
+    nome_encontrado, ok = nome_existe_na_base(nome, todos_orientados_doutorado)
+    if ok:
+        return nome_encontrado
+
+    return nome
 
 def busca_ou_registra_autor(autor: dict) -> dict:
     """
@@ -80,13 +119,13 @@ def busca_ou_registra_autor(autor: dict) -> dict:
     id = autor["@NRO-ID-CNPQ"]
     nome_autor = normaliza_nome(autor["@NOME-COMPLETO-DO-AUTOR"])
     nomes_citacao = remove_acentos(autor["@NOME-PARA-CITACAO"]).replace("-", " ").split(";")
-    k, ok = existe_na_base(id, nome_autor, nomes_citacao, todos_pesquisadores)
+    nome, ok = autor_ou_pesquisador_existe_na_base(id, nome_autor, nomes_citacao, todos_pesquisadores)
     if ok:
-        return k
+        return nome
     
-    k, ok = existe_na_base(id, nome_autor, nomes_citacao, todos_autores)
+    nome, ok = autor_ou_pesquisador_existe_na_base(id, nome_autor, nomes_citacao, todos_autores)
     if ok:
-        return k
+        return nome
     
     id = autor["@NRO-ID-CNPQ"]
     if id == "":
@@ -150,6 +189,8 @@ def formata_orientacoes(items: list[dict] | dict, tipo: Literal["MESTRADO", "DOU
     Returns:
         list(dict): Orientações formatos com informações reduzidas e padronizadas.
     """
+    base = bases_orientados[tipo]
+
     if isinstance(items, dict):
         items = [items]
     
@@ -157,17 +198,14 @@ def formata_orientacoes(items: list[dict] | dict, tipo: Literal["MESTRADO", "DOU
     for orientacao in items:
         titulo = orientacao[f"DADOS-BASICOS-DE-ORIENTACOES-CONCLUIDAS-PARA-{tipo}"]["@TITULO"]
         nome = normaliza_nome(orientacao[f"DETALHAMENTO-DE-ORIENTACOES-CONCLUIDAS-PARA-{tipo}"]["@NOME-DO-ORIENTADO"])
+        nome = pesquisa_orientado_nas_bases(nome)
+        base[nome] = True
         orientacoes.append(
             {
                 "titulo": titulo,
                 "orientado": nome,
             }
         )
-
-        if tipo == "MESTRADO":
-            todos_orientados_mestrado[nome] = True
-        else:
-            todos_orientados_doutorado[nome] = True
         
     return orientacoes
 
@@ -223,7 +261,7 @@ outros_individuos_node_list = []
 for k, v in todos_pesquisadores.items():
     g.add_node(k)
     pesquisadores_node_list.append(k)
-    label_list[k] = k
+    #label_list[k] = k
 
 # adiciona autores como nodes
 for k, v in todos_pesquisadores.items():
@@ -257,8 +295,6 @@ for k, v in todos_pesquisadores.items():
             outros_individuos_node_list.append(orientacao["orientado"])
             g.add_edge(k, orientacao["orientado"])
 
-print("COAUTORES:", todos_autores.keys())
-
 node_colors = []
 
 for node in g.nodes:
@@ -286,7 +322,7 @@ for node in g.nodes:
     elif is_doutorado:
         node_colors.append("yellow")  # Apenas doutorado
 
-#label_list = {node: node for node in g.nodes}
+label_list = {node: node for node in g.nodes}
 pos = nx.kamada_kawai_layout(g, scale=2, dim=2)
 nx.draw_networkx_nodes(g, pos, node_size=100, nodelist=pesquisadores_node_list, node_color="gray")
 nx.draw_networkx_nodes(g, pos, node_size=50, nodelist=outros_individuos_node_list, node_color=node_colors)
