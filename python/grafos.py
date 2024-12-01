@@ -1,8 +1,8 @@
 """
 EQUIPE:
  - LUCAS DE FARIAS TEIXEIRA
- - GUSTAVO CAMPESTRINI
- - NICOLAS CERUTTI
+ - GUSTAVO HENRIQUE CAMPESTRINI
+ - NICOLAS ANDREI CERUTTI
 """
 import xmltodict
 import os
@@ -13,7 +13,7 @@ import re
 from typing import Literal
 
 # caminho dos curriculos no sistema de arquivos
-basepath = "/home/magalu/sandbox/graphs/curriculos/"
+basepath = "./curriculos/"
 
 # inicializa algumas variaveis necessarias para a execucao
 curriculos = []
@@ -166,6 +166,7 @@ def formata_orientacoes(items: list[dict] | dict, tipo: Literal["MESTRADO", "DOU
 
 
 for filename in os.listdir(basepath):
+    # with open(basepath + "2060996038464074.xml", "r+", encoding="iso-8859-1") as file:
     with open(basepath + filename, "r+", encoding="iso-8859-1") as file:
         curriculos.append(xmltodict.parse(file.read(), encoding="iso-8859-1"))
 
@@ -195,12 +196,14 @@ for curriculo in curriculos:
 
 g = nx.Graph()
 
-color_map = []
+
+pesquisadores_node_list = []
+coautores_node_list = []
 label_list = {}
 
 for k, v in pesquisadores.items():
     g.add_node(v["nome"])
-    color_map.append("yellow")
+    pesquisadores_node_list.append(v["nome"])
     label_list[v["nome"]] = v["nome"]
 
 for k, v in pesquisadores.items():
@@ -210,18 +213,90 @@ for k, v in pesquisadores.items():
                 if i["nome"] == j["nome"]:
                     continue
 
-                if not g.has_node(i["nome"]):                  
+                if not g.has_node(i["nome"]):
                     g.add_node(i["nome"], weight=1)
-                    color_map.append("blue")
+                    coautores_node_list.append(i["nome"])
 
-                if not g.has_node(j["nome"]):                  
+                if not g.has_node(j["nome"]):
                     g.add_node(j["nome"], weight=1)
-                    color_map.append("green")
+                    coautores_node_list.append(j["nome"])
 
                 g.add_edge(i["nome"], j["nome"])
 
+for k, v in pesquisadores.items():
+    for orientacao in v["orientandos"]["mestrado"]:
+        if not g.has_node(orientacao["orientado"]):
+            g.add_node(orientacao["orientado"], weight=1)
+            coautores_node_list.append(orientacao["orientado"])
+        g.add_edge(v["nome"], orientacao["orientado"])
+
+    for orientacao in v["orientandos"]["doutorado"]:
+        if not g.has_node(orientacao["orientado"]):
+            g.add_node(orientacao["orientado"], weight=1)
+            coautores_node_list.append(orientacao["orientado"])
+        g.add_edge(v["nome"], orientacao["orientado"])
+
+
+node_colors = {}
+
+for node in g.nodes:
+    is_pesquisador = node in pesquisadores_node_list
+    is_coautor = node in coautores_node_list
+    is_mestrado = any(
+        orientacao["orientado"] == node
+        for v in pesquisadores.values()
+        for orientacao in v["orientandos"]["mestrado"]
+    )
+    is_doutorado = any(
+        orientacao["orientado"] == node
+        for v in pesquisadores.values()
+        for orientacao in v["orientandos"].get("doutorado", [])
+    )
+
+    if is_pesquisador:
+        node_colors[node] = "gray"  # Pesquisador analisado
+    elif is_coautor and is_mestrado and is_doutorado:
+        node_colors[node] = "orange"  # Coautor, mestrado e doutorado
+    elif is_coautor and is_mestrado:
+        node_colors[node] = "purple"  # Coautor e mestrado
+    elif is_coautor and is_doutorado:
+        node_colors[node] = "green"  # Coautor e doutorado
+    elif is_mestrado and is_doutorado:
+        node_colors[node] = "brown"  # Mestrado e doutorado
+    elif is_coautor:
+        node_colors[node] = "blue"  # Apenas coautor
+    elif is_mestrado:
+        node_colors[node] = "red"  # Apenas mestrado
+    elif is_doutorado:
+        node_colors[node] = "yellow"  # Apenas doutorado
+
+
 pos = nx.kamada_kawai_layout(g, scale=2, dim=2)
-nx.draw_networkx_nodes(g, pos, node_size=50, node_color=color_map)
+
+pesquisadores_colors = [node_colors[node] for node in pesquisadores_node_list]
+coautores_colors = [node_colors[node] for node in coautores_node_list]
+
+print(len(coautores_node_list))
+
+nx.draw_networkx_nodes(g, pos, node_size=150, nodelist=pesquisadores_node_list, node_color=pesquisadores_colors)
+nx.draw_networkx_nodes(g, pos, node_size=50, nodelist=coautores_node_list, node_color=coautores_colors)
+
 nx.draw_networkx_edges(g, pos)
 _ = nx.draw_networkx_labels(g, pos, labels=label_list, font_color="red")
 plt.show()
+
+
+
+# pesquisador analisado = cinza
+
+# co-autores = azul
+# mestrado = vermelho
+# doutorado = amarelo
+
+# co-autores && mestrado = roxo
+# co-autores && doutorado = verde
+# mestrado && doutorado = marrom
+
+# co-autores && doutorado && mestrado = laranja
+
+
