@@ -1,8 +1,8 @@
 """
 EQUIPE:
  - LUCAS DE FARIAS TEIXEIRA
- - GUSTAVO HENRIQUE CAMPESTRINI
- - NICOLAS ANDREI CERUTTI
+ - GUSTAVO CAMPESTRINI
+ - NICOLAS CERUTI
 """
 import xmltodict
 import os
@@ -10,6 +10,8 @@ import networkx as nx
 import unicodedata
 import matplotlib.pyplot as plt
 import re
+import community.community_louvain as community_louvain
+import matplotlib.cm as cm
 from typing import Literal
 import community.community_louvain as community_louvain
 import matplotlib.cm as cm
@@ -23,6 +25,17 @@ todos_pesquisadores = {}
 todos_autores = {}
 todos_orientados_mestrado = {}
 todos_orientados_doutorado = {}
+bases_orientados = {
+    MESTRADO: todos_orientados_mestrado,
+    DOUTORADO: todos_orientados_doutorado,
+}
+coautoria_frequente = {}
+label_list = {}
+pesquisadores_node_list = []
+autores_node_list = []
+orientados_mestrado_node_list = []
+orientados_doutorado_node_list = []
+autores_orientados_node_list = []
 id_cont = 1
 
 
@@ -207,114 +220,198 @@ def inicia_pesquisadores(curriculos: list[dict]) -> None:
             todos_pesquisadores[nome]["orientandos"]["doutorado"] = formata_orientacoes(orientacoes, "DOUTORADO")
 
 
+def adiciona_aresta(g: nx.Graph, u: str, v: str):
+    g.add_edge(u, v)
+
+
+def adiciona_aresta_e_contabiliza_relacao(g: nx.Graph, u: str, v: str):
+    g.add_edge(u, v)
+    pair = tuple(sorted([u, v]))
+    if pair in coautoria_frequente:
+        coautoria_frequente[pair] += 1
+    else:
+        coautoria_frequente[pair] = 1
+
+
+def adiciona_pesquisadores_ao_grafo(g: nx.Graph):
+    # adiciona pesquisadores como nodes
+    for k in todos_pesquisadores.keys():
+        g.add_node(k)
+        pesquisadores_node_list.append(k)
+        label_list[k] = k
+
+
+def adiciona_autores_ao_grafo(g: nx.Graph, contabiliza_relacoes: bool):
+    funcoes_adicao_arestas = {
+        True: adiciona_aresta_e_contabiliza_relacao,
+        False: adiciona_aresta,
+    }
+    func_adiciona_aresta = funcoes_adicao_arestas[contabiliza_relacoes]
+    # adiciona autores como nodes
+    for v in todos_pesquisadores.values():
+        for a in v["artigos"]:
+            for i in a["autores"]:
+                for j in a["autores"]:
+                    if i == j:
+                        continue
+
+                    if not g.has_node(i):            
+                        g.add_node(i, weight=1)
+                        autores_node_list.append(i)
+
+                    if not g.has_node(j):                  
+                        g.add_node(j, weight=1)
+                        autores_node_list.append(j)
+
+                    func_adiciona_aresta(g, i, j)
+                    
+
+def adiciona_orientados_ao_grafo(g: nx.Graph):
+    # adiciona orientados como nodes
+    for k, v in todos_pesquisadores.items():
+        for orientacao in v["orientandos"]["mestrado"]:
+            if not g.has_node(orientacao["orientado"]):
+                g.add_node(orientacao["orientado"], weight=1)
+                orientados_mestrado_node_list.append(orientacao["orientado"])
+                g.add_edge(k, orientacao["orientado"])
+
+        for orientacao in v["orientandos"]["doutorado"]:
+            if not g.has_node(orientacao["orientado"]):
+                g.add_node(orientacao["orientado"], weight=1)
+                orientados_doutorado_node_list.append(orientacao["orientado"])
+                g.add_edge(k, orientacao["orientado"])
+
+
+def retorna_cores_para_grafo_com_todos_os_individuos(g: nx.Graph):
+    node_colors = []
+
+    for node in g.nodes:
+        is_pesquisador = node in todos_pesquisadores.keys()
+        # Como o peesquisador sempre sera apenas pesquisador, definimos a cor na hora de desenhar (sera cinza)
+        if is_pesquisador:
+            continue
+
+        is_coautor = node in todos_autores.keys()
+        is_mestrado = node in todos_orientados_mestrado.keys()
+        is_doutorado = node in todos_orientados_doutorado.keys()
+
+        if is_coautor and (is_mestrado or is_doutorado):
+            node_colors.append("yellow")  # Coautor e orientado
+            autores_orientados_node_list.append(node)
+        elif is_coautor:
+            node_colors.append("blue")  # Apenas coautor
+        elif is_mestrado or is_doutorado:
+            node_colors.append("green")  # Apenas orientado
+
+    return node_colors
+
+
+def limpa_listas():
+    pesquisadores_node_list.clear()
+    autores_node_list.clear()
+    orientados_mestrado_node_list.clear()
+    orientados_doutorado_node_list.clear()
+
+
 for filename in os.listdir(basepath):
-    # if filename == "2060996038464074.xml":
+    #if filename == "2060996038464074.xml":
         with open(basepath + filename, "r+", encoding="iso-8859-1") as file:
             curriculos.append(xmltodict.parse(file.read(), encoding="iso-8859-1"))
 
 inicia_pesquisadores(curriculos)
 
-g = nx.Graph()
+g_pesquisadores_autores = nx.Graph()
+adiciona_pesquisadores_ao_grafo(g_pesquisadores_autores)
+adiciona_autores_ao_grafo(g_pesquisadores_autores, True)
 
-label_list = {}
+# Desenha grafo com pesquisadores e autores
+pos = nx.kamada_kawai_layout(g_pesquisadores_autores, scale=2, dim=2)
+nx.draw_networkx_nodes(g_pesquisadores_autores, pos, node_size=100, nodelist=pesquisadores_node_list, node_color="yellow")
+nx.draw_networkx_nodes(g_pesquisadores_autores, pos, node_size=50, nodelist=autores_node_list, node_color="blue")
+nx.draw_networkx_edges(g_pesquisadores_autores, pos)
+_ = nx.draw_networkx_labels(g_pesquisadores_autores, pos, labels=label_list, font_color="red")
+plt.title("Grafo com Pesquisadores e Autores")
+plt.show()
+limpa_listas()
 
-pesquisadores_node_list = []
-outros_individuos_node_list = []
+g_pesquisadores_orientados = nx.Graph()
+adiciona_pesquisadores_ao_grafo(g_pesquisadores_orientados)
+adiciona_orientados_ao_grafo(g_pesquisadores_orientados)
 
-# adiciona pesquisadores como nodes
-for k, v in todos_pesquisadores.items():
-    g.add_node(k)
-    pesquisadores_node_list.append(k)
-    label_list[k] = k
+# Desenha grafo com pesquisadores e orientados de mestrado e doutorado
+pos = nx.kamada_kawai_layout(g_pesquisadores_orientados, scale=2, dim=2)
+nx.draw_networkx_nodes(g_pesquisadores_orientados, pos, node_size=100, nodelist=pesquisadores_node_list, node_color="yellow")
+nx.draw_networkx_nodes(g_pesquisadores_orientados, pos, node_size=50, nodelist=orientados_mestrado_node_list, node_color="blue")
+nx.draw_networkx_nodes(g_pesquisadores_orientados, pos, node_size=50, nodelist=orientados_doutorado_node_list, node_color="green")
+nx.draw_networkx_edges(g_pesquisadores_orientados, pos)
+_ = nx.draw_networkx_labels(g_pesquisadores_orientados, pos, labels=label_list, font_color="red")
+plt.title("Grafo com Pesquisadores e Orientados de Mestrado e Doutorado")
+plt.show()
+limpa_listas()
 
-# adiciona autores como nodes
-for k, v in todos_pesquisadores.items():
-    for a in v["artigos"]:
-        for i in a["autores"]:
-            for j in a["autores"]:
-                if i == j:
-                    continue
+g_com_todos_os_individuos = nx.Graph()
+adiciona_pesquisadores_ao_grafo(g_com_todos_os_individuos)
+adiciona_autores_ao_grafo(g_com_todos_os_individuos, False)
+adiciona_orientados_ao_grafo(g_com_todos_os_individuos)
 
-                if not g.has_node(i):                  
-                    g.add_node(i, weight=1)
-                    outros_individuos_node_list.append(i)
+# Desenha grafo com pesquisadores, autores, e orientados de mestrado e doutorado
+node_colors = retorna_cores_para_grafo_com_todos_os_individuos(g_com_todos_os_individuos)
+node_list = autores_node_list + orientados_mestrado_node_list + orientados_doutorado_node_list
+pos = nx.kamada_kawai_layout(g_com_todos_os_individuos, scale=2, dim=2)
+nx.draw_networkx_nodes(g_com_todos_os_individuos, pos, node_size=100, nodelist=pesquisadores_node_list, node_color="gray")
+nx.draw_networkx_nodes(g_com_todos_os_individuos, pos, node_size=50, nodelist=node_list, node_color=node_colors)
+nx.draw_networkx_edges(g_com_todos_os_individuos, pos)
+_ = nx.draw_networkx_labels(g_com_todos_os_individuos, pos, labels=label_list, font_color="red")
+plt.title("Grafo com Pesquisadores, Autores e Orientados de Mestrado e Doutorado")
+plt.show()
+limpa_listas()
 
-                if not g.has_node(j):                  
-                    g.add_node(j, weight=1)
-                    outros_individuos_node_list.append(j)
+# Identificando clusters de pesquisadores com o mesmo orientador
+print("Coeficiente de clusters para cada node de pesquisadores com o mesmo orientador")
+clusters = nx.clustering(g_com_todos_os_individuos, nodes=autores_orientados_node_list)
+print(clusters)
 
-                g.add_edge(i, j)
+# Calcula Degree Centrality
+with open("degree_centrality.txt", "w") as file:
+    file.write("Degree Centrality\n")
+    print("Degree Centrality")
+    degree_centrality = nx.degree_centrality(g_com_todos_os_individuos)
+    print(degree_centrality)
+    for node, centrality in degree_centrality.items():
+        file.write(f"{node}: {centrality}\n")
 
-# adiciona orientandos como nodes
-for k, v in todos_pesquisadores.items():
-    for orientacao in v["orientandos"]["mestrado"]:
-        if not g.has_node(orientacao["orientado"]):
-            g.add_node(orientacao["orientado"], weight=1)
-            outros_individuos_node_list.append(orientacao["orientado"])
-            g.add_edge(k, orientacao["orientado"])
+# Calcula Betweenness Centrality
+with open("betweenness_centrality.txt", "w") as file:
+    file.write("Betweenness Centrality\n")
+    print("Betweenness Centrality")
+    betweenness_centrality = nx.betweenness_centrality(g_com_todos_os_individuos)
+    print(betweenness_centrality)
+    for node, centrality in betweenness_centrality.items():
+        file.write(f"{node}: {centrality}\n")
 
-    for orientacao in v["orientandos"]["doutorado"]:
-        if not g.has_node(orientacao["orientado"]):
-            g.add_node(orientacao["orientado"], weight=1)
-            outros_individuos_node_list.append(orientacao["orientado"])
-            g.add_edge(k, orientacao["orientado"])
-
-# print("COAUTORES:", todos_autores.keys())
-
-node_colors = []
-
-for node in g.nodes:
-    is_pesquisador = node in todos_pesquisadores.keys()
-    if is_pesquisador:
-        continue
-
-    is_coautor = node in todos_autores.keys()
-    is_mestrado = node in todos_orientados_mestrado.keys()
-    is_doutorado = node in todos_orientados_doutorado.keys()
-
-    # Definir a cor com base nas condições
-    if is_coautor and is_mestrado and is_doutorado:
-        node_colors.append("orange")  # Coautor, mestrado e doutorado
-    elif is_coautor and is_mestrado:
-        node_colors.append("purple")  # Coautor e mestrado
-    elif is_coautor and is_doutorado:
-        node_colors.append("green")  # Coautor e doutorado
-    elif is_mestrado and is_doutorado:
-        node_colors.append("brown")  # Mestrado e doutorado
-    elif is_coautor:
-        node_colors.append("blue")  # Apenas coautor
-    elif is_mestrado:
-        node_colors.append("red")  # Apenas mestrado
-    elif is_doutorado:
-        node_colors.append("yellow")  # Apenas doutorado
-
-
-
-
-# Grafico cluster
-partition = community_louvain.best_partition(g)
-
-pos = nx.kamada_kawai_layout(g, scale=2, dim=2)
-
+# Identifica comunidades entre pesquisadores
+partition = community_louvain.best_partition(g_com_todos_os_individuos)
 plt.figure(figsize=(10, 10))
-colors = [partition[node] for node in g.nodes]
-nx.draw_networkx_nodes(g, pos, node_size=50, node_color=colors, cmap=plt.cm.jet)
-nx.draw_networkx_labels(g, pos, labels=label_list, font_size=10)
-nx.draw_networkx_edges(g, pos, alpha=0.3)
-
+colors = [partition[node] for node in g_com_todos_os_individuos.nodes]
+nx.draw_networkx_nodes(g_com_todos_os_individuos, pos, node_size=50, node_color=colors, cmap=plt.cm.jet)
+nx.draw_networkx_labels(g_com_todos_os_individuos, pos, labels=label_list, font_size=10)
+nx.draw_networkx_edges(g_com_todos_os_individuos, pos, alpha=0.3)
 num_clusters = len(set(partition.values()))
-print(f'Número de clusters detectados: {num_clusters}')
-
-plt.title("Cluster de Pesquisadores")
+print(f'Número de comunidades detectados: {num_clusters}')
+plt.title("Principais Comunidades de Pesquisadores")
 plt.show()
 
+# Calcula a densidade do grafo
+with open("densidade.txt", "w") as file:
+    print("Densidade do grafo: ", end="")
+    densidade_grafo = nx.density(g_com_todos_os_individuos)
+    print(densidade_grafo)
+    file.write(f"Densidade do grafo: {densidade_grafo}")
 
-
-# # Grafico Hierarquia
-# #label_list = {node: node for node in g.nodes}
-# pos = nx.kamada_kawai_layout(g, scale=2, dim=2)
-# nx.draw_networkx_nodes(g, pos, node_size=100, nodelist=pesquisadores_node_list, node_color="gray")
-# nx.draw_networkx_nodes(g, pos, node_size=50, nodelist=outros_individuos_node_list, node_color=node_colors)
-# nx.draw_networkx_edges(g, pos)
-# _ = nx.draw_networkx_labels(g, pos, labels=label_list, font_color="red")
-# plt.show()
+# Frequencia de colaborações entre pesquisadores
+with open("frequencia_colaboracoes.txt", "w") as file:
+    file.write("Identificação de Padrões de Coautoria e Frequência de Colaborações:\n")
+    print("Identificação de Padrões de Coautoria e Frequência de Colaborações")
+    for pair, freq in coautoria_frequente.items():
+        print(f"{pair[0]} e {pair[1]}:  {freq} vezes\n")
+        file.write(f"{pair[0]} e {pair[1]}:  {freq} vezes\n")
