@@ -11,7 +11,6 @@ import unicodedata
 import matplotlib.pyplot as plt
 import re
 import community.community_louvain as community_louvain
-import matplotlib.cm as cm
 from typing import Literal
 
 # consts
@@ -319,7 +318,7 @@ def retorna_cores_para_grafo_com_todos_os_individuos(g: nx.Graph):
 
     for node in g.nodes:
         is_pesquisador = node in todos_pesquisadores.keys()
-        # Como o peesquisador sempre sera apenas pesquisador, definimos a cor na hora de desenhar (sera cinza)
+        # Como o peesquisador sempre sera apenas pesquisador, definimos a cor na hora de desenhar (sera vermelho)
         if is_pesquisador:
             continue
 
@@ -346,9 +345,8 @@ def limpa_listas():
 
 
 for filename in os.listdir(basepath):
-    #if filename == "2060996038464074.xml":
-        with open(basepath + filename, "r+", encoding="iso-8859-1") as file:
-            curriculos.append(xmltodict.parse(file.read(), encoding="iso-8859-1"))
+    with open(basepath + filename, "r+", encoding="iso-8859-1") as file:
+        curriculos.append(xmltodict.parse(file.read(), encoding="iso-8859-1"))
 
 inicia_pesquisadores(curriculos)
 
@@ -390,7 +388,7 @@ adiciona_orientados_ao_grafo(g_com_todos_os_individuos)
 node_colors = retorna_cores_para_grafo_com_todos_os_individuos(g_com_todos_os_individuos)
 node_list = autores_node_list + orientados_mestrado_node_list + orientados_doutorado_node_list
 pos = nx.kamada_kawai_layout(g_com_todos_os_individuos, scale=2, dim=2)
-nx.draw_networkx_nodes(g_com_todos_os_individuos, pos, node_size=100, nodelist=pesquisadores_node_list, node_color="gray")
+nx.draw_networkx_nodes(g_com_todos_os_individuos, pos, node_size=100, nodelist=pesquisadores_node_list, node_color="red")
 nx.draw_networkx_nodes(g_com_todos_os_individuos, pos, node_size=50, nodelist=node_list, node_color=node_colors)
 nx.draw_networkx_edges(g_com_todos_os_individuos, pos)
 _ = nx.draw_networkx_labels(g_com_todos_os_individuos, pos, labels=label_list, font_color="red")
@@ -399,9 +397,12 @@ plt.show()
 limpa_listas()
 
 # Identificando clusters de pesquisadores com o mesmo orientador
-print("Coeficiente de clusters para cada node de pesquisadores com o mesmo orientador")
-clusters = nx.clustering(g_com_todos_os_individuos, nodes=autores_orientados_node_list)
-print(clusters)
+with open("clustering.txt", "w+") as file:
+    file.write("Coeficiente de clusters para cada node de pesquisadores com o mesmo orientador\n")
+    print("Coeficiente de clusters para cada node de pesquisadores com o mesmo orientador")
+    clusters = nx.clustering(g_com_todos_os_individuos, nodes=autores_orientados_node_list)
+    file.write(f"Dados de clustering: {clusters}")
+    print(clusters)
 
 # Calcula Degree Centrality
 with open("degree_centrality.txt", "w") as file:
@@ -426,8 +427,8 @@ partition = community_louvain.best_partition(g_com_todos_os_individuos)
 plt.figure(figsize=(10, 10))
 colors = [partition[node] for node in g_com_todos_os_individuos.nodes]
 nx.draw_networkx_nodes(g_com_todos_os_individuos, pos, node_size=50, node_color=colors, cmap=plt.cm.jet)
-nx.draw_networkx_labels(g_com_todos_os_individuos, pos, labels=label_list, font_size=10)
 nx.draw_networkx_edges(g_com_todos_os_individuos, pos, alpha=0.3)
+nx.draw_networkx_labels(g_com_todos_os_individuos, pos, labels=label_list, font_size=10)
 num_clusters = len(set(partition.values()))
 print(f'Número de comunidades detectados: {num_clusters}')
 plt.title("Principais Comunidades de Pesquisadores")
@@ -441,9 +442,12 @@ with open("densidade.txt", "w") as file:
     file.write(f"Densidade do grafo: {densidade_grafo}")
 
 # Frequencia de colaborações entre pesquisadores
+# Essas frequencias sao contabilizadas na funcao adiciona_aresta_e_contabiliza_relacao
+# As frequencias sao divididas por 2 pois cada aresta é contada 2 vezes. Sendo um par de vértices (u, v), é contada como (u, v) e (v, u).
 with open("frequencia_colaboracoes.txt", "w") as file:
     file.write("Identificação de Padrões de Coautoria e Frequência de Colaborações:\n")
     print("Identificação de Padrões de Coautoria e Frequência de Colaborações")
     for pair, freq in coautoria_frequente.items():
+        freq = int(freq/2)
         print(f"{pair[0]} e {pair[1]}:  {freq} vezes\n")
         file.write(f"{pair[0]} e {pair[1]}:  {freq} vezes\n")
