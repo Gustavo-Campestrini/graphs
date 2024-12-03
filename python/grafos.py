@@ -325,19 +325,19 @@ for filename in os.listdir(basepath):
 inicia_pesquisadores(curriculos)
   
         
-# g_pesquisadores_autores = nx.Graph()
-# adiciona_pesquisadores_ao_grafo(g_pesquisadores_autores)
-# adiciona_autores_ao_grafo(g_pesquisadores_autores, True)
+g_pesquisadores_autores = nx.Graph()
+adiciona_pesquisadores_ao_grafo(g_pesquisadores_autores)
+adiciona_autores_ao_grafo(g_pesquisadores_autores, True)
 
-# # Desenha grafo com pesquisadores e autores
-# pos = nx.kamada_kawai_layout(g_pesquisadores_autores, scale=2, dim=2)
-# nx.draw_networkx_nodes(g_pesquisadores_autores, pos, node_size=100, nodelist=pesquisadores_node_list, node_color="yellow")
-# nx.draw_networkx_nodes(g_pesquisadores_autores, pos, node_size=50, nodelist=autores_node_list, node_color="blue")
-# nx.draw_networkx_edges(g_pesquisadores_autores, pos)
-# _ = nx.draw_networkx_labels(g_pesquisadores_autores, pos, labels=label_list, font_color="red")
-# plt.title("Grafo com Pesquisadores e Autores")
-# plt.show()
-# limpa_listas()
+# Desenha grafo com pesquisadores e autores
+pos = nx.kamada_kawai_layout(g_pesquisadores_autores, scale=2, dim=2)
+nx.draw_networkx_nodes(g_pesquisadores_autores, pos, node_size=100, nodelist=pesquisadores_node_list, node_color="yellow")
+nx.draw_networkx_nodes(g_pesquisadores_autores, pos, node_size=50, nodelist=autores_node_list, node_color="blue")
+nx.draw_networkx_edges(g_pesquisadores_autores, pos)
+_ = nx.draw_networkx_labels(g_pesquisadores_autores, pos, labels=label_list, font_color="red")
+plt.title("Grafo com Pesquisadores e Autores")
+plt.show()
+limpa_listas()
 
 g_pesquisadores_orientados = nx.Graph()
 adiciona_pesquisadores_ao_grafo(g_pesquisadores_orientados)
@@ -383,75 +383,75 @@ plt.title("Grafo com Pesquisadores e Orientados de Mestrado e Doutorado")
 plt.show()
 limpa_listas()
 
-# g_com_todos_os_individuos = nx.Graph()
-# adiciona_pesquisadores_ao_grafo(g_com_todos_os_individuos)
-# adiciona_autores_ao_grafo(g_com_todos_os_individuos, False)
-# adiciona_orientados_ao_grafo(g_com_todos_os_individuos)
+g_com_todos_os_individuos = nx.Graph()
+adiciona_pesquisadores_ao_grafo(g_com_todos_os_individuos)
+adiciona_autores_ao_grafo(g_com_todos_os_individuos, False)
+adiciona_orientados_ao_grafo(g_com_todos_os_individuos)
 
-# # Desenha grafo com pesquisadores, autores, e orientados de mestrado e doutorado
-# node_colors = retorna_cores_para_grafo_com_todos_os_individuos(g_com_todos_os_individuos)
-# node_list = autores_node_list + orientados_mestrado_node_list + orientados_doutorado_node_list
-# pos = nx.kamada_kawai_layout(g_com_todos_os_individuos, scale=2, dim=2)
-# nx.draw_networkx_nodes(g_com_todos_os_individuos, pos, node_size=100, nodelist=pesquisadores_node_list, node_color="red")
-# nx.draw_networkx_nodes(g_com_todos_os_individuos, pos, node_size=50, nodelist=node_list, node_color=node_colors)
-# nx.draw_networkx_edges(g_com_todos_os_individuos, pos)
-# _ = nx.draw_networkx_labels(g_com_todos_os_individuos, pos, labels=label_list, font_color="red")
-# plt.title("Grafo com Pesquisadores, Autores e Orientados de Mestrado e Doutorado")
-# plt.show()
-# limpa_listas()
+# Desenha grafo com pesquisadores, autores, e orientados de mestrado e doutorado
+node_colors = retorna_cores_para_grafo_com_todos_os_individuos(g_com_todos_os_individuos)
+node_list = autores_node_list + orientados_mestrado_node_list + orientados_doutorado_node_list
+pos = nx.kamada_kawai_layout(g_com_todos_os_individuos, scale=2, dim=2)
+nx.draw_networkx_nodes(g_com_todos_os_individuos, pos, node_size=100, nodelist=pesquisadores_node_list, node_color="red")
+nx.draw_networkx_nodes(g_com_todos_os_individuos, pos, node_size=50, nodelist=node_list, node_color=node_colors)
+nx.draw_networkx_edges(g_com_todos_os_individuos, pos)
+_ = nx.draw_networkx_labels(g_com_todos_os_individuos, pos, labels=label_list, font_color="red")
+plt.title("Grafo com Pesquisadores, Autores e Orientados de Mestrado e Doutorado")
+plt.show()
+limpa_listas()
 
-# # Identificando clusters de pesquisadores com o mesmo orientador
-# with open("clustering.txt", "w+") as file:
-#     file.write("Coeficiente de clusters para cada node de pesquisadores com o mesmo orientador\n")
-#     print("Coeficiente de clusters para cada node de pesquisadores com o mesmo orientador")
-#     clusters = nx.clustering(g_com_todos_os_individuos, nodes=autores_orientados_node_list)
-#     file.write(f"Dados de clustering: {clusters}")
-#     print(clusters)
+# Identificando clusters de pesquisadores com o mesmo orientador
+with open("clustering.txt", "w+") as file:
+    file.write("Coeficiente de clusters para cada node de pesquisadores com o mesmo orientador\n")
+    print("Coeficiente de clusters para cada node de pesquisadores com o mesmo orientador")
+    clusters = nx.clustering(g_com_todos_os_individuos, nodes=autores_orientados_node_list)
+    file.write(f"Dados de clustering: {clusters}")
+    print(clusters)
 
-# # Calcula Degree Centrality
-# with open("degree_centrality.txt", "w") as file:
-#     file.write("Degree Centrality\n")
-#     print("Degree Centrality")
-#     degree_centrality = nx.degree_centrality(g_com_todos_os_individuos)
-#     print(degree_centrality)
-#     for node, centrality in degree_centrality.items():
-#         file.write(f"{node}: {centrality}\n")
+# Calcula Degree Centrality
+with open("degree_centrality.txt", "w") as file:
+    file.write("Degree Centrality\n")
+    print("Degree Centrality")
+    degree_centrality = nx.degree_centrality(g_com_todos_os_individuos)
+    print(degree_centrality)
+    for node, centrality in degree_centrality.items():
+        file.write(f"{node}: {centrality}\n")
 
-# # Calcula Betweenness Centrality
-# with open("betweenness_centrality.txt", "w") as file:
-#     file.write("Betweenness Centrality\n")
-#     print("Betweenness Centrality")
-#     betweenness_centrality = nx.betweenness_centrality(g_com_todos_os_individuos)
-#     print(betweenness_centrality)
-#     for node, centrality in betweenness_centrality.items():
-#         file.write(f"{node}: {centrality}\n")
+# Calcula Betweenness Centrality
+with open("betweenness_centrality.txt", "w") as file:
+    file.write("Betweenness Centrality\n")
+    print("Betweenness Centrality")
+    betweenness_centrality = nx.betweenness_centrality(g_com_todos_os_individuos)
+    print(betweenness_centrality)
+    for node, centrality in betweenness_centrality.items():
+        file.write(f"{node}: {centrality}\n")
 
-# # Identifica comunidades entre pesquisadores
-# partition = community_louvain.best_partition(g_com_todos_os_individuos)
-# plt.figure(figsize=(10, 10))
-# colors = [partition[node] for node in g_com_todos_os_individuos.nodes]
-# nx.draw_networkx_nodes(g_com_todos_os_individuos, pos, node_size=50, node_color=colors, cmap=plt.cm.jet)
-# nx.draw_networkx_edges(g_com_todos_os_individuos, pos, alpha=0.3)
-# nx.draw_networkx_labels(g_com_todos_os_individuos, pos, labels=label_list, font_size=10)
-# num_clusters = len(set(partition.values()))
-# print(f'Número de comunidades detectados: {num_clusters}')
-# plt.title("Principais Comunidades de Pesquisadores")
-# plt.show()
+# Identifica comunidades entre pesquisadores
+partition = community_louvain.best_partition(g_com_todos_os_individuos)
+plt.figure(figsize=(10, 10))
+colors = [partition[node] for node in g_com_todos_os_individuos.nodes]
+nx.draw_networkx_nodes(g_com_todos_os_individuos, pos, node_size=50, node_color=colors, cmap=plt.cm.jet)
+nx.draw_networkx_edges(g_com_todos_os_individuos, pos, alpha=0.3)
+nx.draw_networkx_labels(g_com_todos_os_individuos, pos, labels=label_list, font_size=10)
+num_clusters = len(set(partition.values()))
+print(f'Número de comunidades detectados: {num_clusters}')
+plt.title("Principais Comunidades de Pesquisadores")
+plt.show()
 
-# # Calcula a densidade do grafo
-# with open("densidade.txt", "w") as file:
-#     print("Densidade do grafo: ", end="")
-#     densidade_grafo = nx.density(g_com_todos_os_individuos)
-#     print(densidade_grafo)
-#     file.write(f"Densidade do grafo: {densidade_grafo}")
+# Calcula a densidade do grafo
+with open("densidade.txt", "w") as file:
+    print("Densidade do grafo: ", end="")
+    densidade_grafo = nx.density(g_com_todos_os_individuos)
+    print(densidade_grafo)
+    file.write(f"Densidade do grafo: {densidade_grafo}")
 
-# # Frequencia de colaborações entre pesquisadores
-# # Essas frequencias sao contabilizadas na funcao adiciona_aresta_e_contabiliza_relacao
-# # As frequencias sao divididas por 2 pois cada aresta é contada 2 vezes. Sendo um par de vértices (u, v), é contada como (u, v) e (v, u).
-# with open("frequencia_colaboracoes.txt", "w") as file:
-#     file.write("Identificação de Padrões de Coautoria e Frequência de Colaborações:\n")
-#     print("Identificação de Padrões de Coautoria e Frequência de Colaborações")
-#     for pair, freq in coautoria_frequente.items():
-#         freq = int(freq/2)
-#         print(f"{pair[0]} e {pair[1]}:  {freq} vezes\n")
-#         file.write(f"{pair[0]} e {pair[1]}:  {freq} vezes\n")
+# Frequencia de colaborações entre pesquisadores
+# Essas frequencias sao contabilizadas na funcao adiciona_aresta_e_contabiliza_relacao
+# As frequencias sao divididas por 2 pois cada aresta é contada 2 vezes. Sendo um par de vértices (u, v), é contada como (u, v) e (v, u).
+with open("frequencia_colaboracoes.txt", "w") as file:
+    file.write("Identificação de Padrões de Coautoria e Frequência de Colaborações:\n")
+    print("Identificação de Padrões de Coautoria e Frequência de Colaborações")
+    for pair, freq in coautoria_frequente.items():
+        freq = int(freq/2)
+        print(f"{pair[0]} e {pair[1]}:  {freq} vezes\n")
+        file.write(f"{pair[0]} e {pair[1]}:  {freq} vezes\n")
