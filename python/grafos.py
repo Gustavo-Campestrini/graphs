@@ -275,13 +275,13 @@ def adiciona_orientados_ao_grafo(g: nx.Graph):
     for k, v in todos_pesquisadores.items():
         for orientacao in v["orientandos"]["mestrado"]:
             if not g.has_node(orientacao["orientado"]):
-                g.add_node(orientacao["orientado"], weight=1)
+                g.add_node(orientacao["orientado"], weight=1, orientador=k)
                 orientados_mestrado_node_list.append(orientacao["orientado"])
                 g.add_edge(k, orientacao["orientado"])
 
         for orientacao in v["orientandos"]["doutorado"]:
             if not g.has_node(orientacao["orientado"]):
-                g.add_node(orientacao["orientado"], weight=1)
+                g.add_node(orientacao["orientado"], weight=1, orientador=k)
                 orientados_doutorado_node_list.append(orientacao["orientado"])
                 g.add_edge(k, orientacao["orientado"])
 
@@ -334,7 +334,7 @@ pos = nx.kamada_kawai_layout(g_pesquisadores_autores, scale=2, dim=2)
 nx.draw_networkx_nodes(g_pesquisadores_autores, pos, node_size=100, nodelist=pesquisadores_node_list, node_color="yellow")
 nx.draw_networkx_nodes(g_pesquisadores_autores, pos, node_size=50, nodelist=autores_node_list, node_color="blue")
 nx.draw_networkx_edges(g_pesquisadores_autores, pos)
-_ = nx.draw_networkx_labels(g_pesquisadores_autores, pos, labels=label_list, font_color="red")
+# _ = nx.draw_networkx_labels(g_pesquisadores_autores, pos, labels=label_list)
 plt.title("Grafo com Pesquisadores e Autores")
 plt.show()
 limpa_listas()
@@ -373,12 +373,12 @@ probabilidade_colaboracao = total_colaboracoes / (total_orientandos * (total_ori
 print(probabilidade_colaboracao)
     
 # Desenha grafo com pesquisadores e orientados de mestrado e doutorado
-pos = nx.kamada_kawai_layout(g_pesquisadores_orientados, scale=2, dim=2)
+pos = nx.fruchterman_reingold_layout(g_pesquisadores_orientados, k=0.12)
 nx.draw_networkx_nodes(g_pesquisadores_orientados, pos, node_size=100, nodelist=pesquisadores_node_list, node_color="yellow")
 nx.draw_networkx_nodes(g_pesquisadores_orientados, pos, node_size=50, nodelist=orientados_mestrado_node_list, node_color="blue")
 nx.draw_networkx_nodes(g_pesquisadores_orientados, pos, node_size=50, nodelist=orientados_doutorado_node_list, node_color="green")
 nx.draw_networkx_edges(g_pesquisadores_orientados, pos)
-_ = nx.draw_networkx_labels(g_pesquisadores_orientados, pos, labels=label_list, font_color="red")
+# _ = nx.draw_networkx_labels(g_pesquisadores_orientados, pos, labels=label_list)
 plt.title("Grafo com Pesquisadores e Orientados de Mestrado e Doutorado")
 plt.show()
 limpa_listas()
@@ -395,7 +395,7 @@ pos = nx.kamada_kawai_layout(g_com_todos_os_individuos, scale=2, dim=2)
 nx.draw_networkx_nodes(g_com_todos_os_individuos, pos, node_size=100, nodelist=pesquisadores_node_list, node_color="red")
 nx.draw_networkx_nodes(g_com_todos_os_individuos, pos, node_size=50, nodelist=node_list, node_color=node_colors)
 nx.draw_networkx_edges(g_com_todos_os_individuos, pos)
-_ = nx.draw_networkx_labels(g_com_todos_os_individuos, pos, labels=label_list, font_color="red")
+# _ = nx.draw_networkx_labels(g_com_todos_os_individuos, pos, labels=label_list)
 plt.title("Grafo com Pesquisadores, Autores e Orientados de Mestrado e Doutorado")
 plt.show()
 limpa_listas()
@@ -455,3 +455,53 @@ with open("frequencia_colaboracoes.txt", "w") as file:
         freq = int(freq/2)
         print(f"{pair[0]} e {pair[1]}:  {freq} vezes\n")
         file.write(f"{pair[0]} e {pair[1]}:  {freq} vezes\n")
+
+
+# Probabilidade de colaboração entre pesquisadores que possuem o mesmo orientador
+# Função para contar as colaborações possíveis
+def contar_colaboracoes_possiveis(grupo_orientados):
+    n = len(grupo_orientados)
+    if n < 2:
+        return 0
+    return n * (n - 1) // 2  # Combinação de 2 elementos de n (C(n, 2))
+
+orientadores = {}
+nodes = g_pesquisadores_orientados.nodes(data="orientador", default="")
+for node in nodes:
+    if node[1] == "":
+        if node[0] not in orientadores.keys():
+            orientadores[node[0]] = []
+        continue
+
+    if node[1] not in orientadores.keys():
+        orientadores[node[1]] = []
+    orientadores[node[1]].append(node[0])
+        
+total_colaboracoes_possiveis = 0
+total_orientandos = 0
+for orientador, grupo in orientadores.items():
+    num_colaboracoes_possiveis = contar_colaboracoes_possiveis(grupo)
+    total_colaboracoes_possiveis += num_colaboracoes_possiveis
+    total_orientandos += len(grupo)
+    print(f"Orientador {orientador}: {len(grupo)} orientandos, {num_colaboracoes_possiveis} colaborações possíveis")
+
+# Calculando a probabilidade de colaboração
+probabilidade_colaboracao = total_colaboracoes_possiveis / (total_orientandos * (total_orientandos - 1) / 2) if total_orientandos > 1 else 0
+print(f"{probabilidade_colaboracao * 100:.2f}%")
+
+# Assortatividade
+orientandos = list(map(lambda x: (x[0], {"orientador": x[1]}), filter(lambda x: x[1], nodes)))
+g_orientandos = nx.Graph()
+g_orientandos.add_nodes_from(orientandos)
+for i in orientandos:
+    for j in orientandos:
+        if g_com_todos_os_individuos.has_edge(i[0], j[0]):
+            g_orientandos.add_edge(i[0], j[0])
+
+assortatividade = nx.assortativity.attribute_assortativity_coefficient(g_pesquisadores_orientados, "orientador")
+print(assortatividade)
+pos = nx.fruchterman_reingold_layout(g_orientandos)
+nx.draw_networkx_nodes(g_orientandos, pos, node_size=70, node_color="green")
+nx.draw_networkx_edges(g_orientandos, pos)
+plt.title("Grafo com Pesquisadores, Autores e Orientados de Mestrado e Doutorado")
+plt.show()
