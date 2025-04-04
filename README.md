@@ -10,3 +10,7 @@ Apesar da baixa taxa de cooperação entre pesquisadores com o mesmo orientador,
 # Exemplos de Grafos gerados
 <img width="1229" alt="image" src="https://github.com/user-attachments/assets/2c47d99c-f435-4b25-a0d8-325036e25fb4">
 <img width="1262" alt="image" src="https://github.com/user-attachments/assets/6e2074fe-2015-4059-a199-ab5774c8878f">
+
+> ## Desenvolvimento </br>
+> [@nicolas-ceruti](https://github.com/nicolas-ceruti) </br>
+> [@Gustavo-Campestrini](https://github.com/Gustavo-Campestrini) 
